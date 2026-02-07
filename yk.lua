@@ -183,7 +183,7 @@ local Window
 pcall(function()
     Window = Fluent:CreateWindow({
         Title = 'The Vampire Legends 2',
-        SubTitle = 'By Vel',
+        SubTitle = 'By Drew',
         TabWidth = 160,
         Size = UDim2.fromOffset(580, 460),
         Acrylic = true,
