@@ -1,4 +1,4 @@
--- [[ THE VAMPIRE LEGENDS 2: SECURED PINK AUTO DEPLOYER ]] --
+-- [[ THE VAMPIRE LEGENDS 2: RAYFIELD PINK ELITE MASTER ]] --
 
 local HttpService = game:GetService("HttpService")
 local Players = game:GetService("Players")
@@ -7,7 +7,7 @@ local UserInputService = game:GetService('UserInputService')
 local LocalPlayer = Players.LocalPlayer
 
 -- ==========================================
--- 1. SECURITY & WHITELIST CONFIGURATION
+-- 1. SECURITY & WHITELIST (STRICTLY ORIGINAL)
 -- ==========================================
 local GITHUB_RAW_URL = "https://gist.githubusercontent.com/kiojaden-star/74d4978add55e3e3c3fd27ccfea6a1b1/raw/"
 local DISCORD_WEBHOOK = "https://discord.com/api/webhooks/1500108885258928312/hQe6XbXJHY4UPX6LWEjv2n1q4QKjpZOfIDYyWASPiAuVNzkhq29jX7r9l2iRju7ouGAw"
@@ -15,54 +15,346 @@ local HWID = game:GetService("RbxAnalyticsService"):GetClientId()
 
 local function notifyDiscord(allowed)
     local status = allowed and "✅ Access Granted" or "❌ ACCESS DENIED (Kicked)"
-    local color = allowed and 65280 or 16711680
-    
     pcall(function()
         local data = {
             ["embeds"] = {{
                 ["title"] = "Script Execution Log",
-                ["color"] = color,
+                ["color"] = allowed and 65280 or 16711680,
                 ["fields"] = {
                     {["name"] = "Player", ["value"] = LocalPlayer.Name, ["inline"] = true},
                     {["name"] = "HWID", ["value"] = "||" .. HWID .. "||", ["inline"] = true},
                     {["name"] = "Status", ["value"] = status, ["inline"] = false}
-                },
-                ["footer"] = {["text"] = "Vampire Legends 2 Auth System"}
+                }
             }}
         }
         local requestFunc = (syn and syn.request) or (http and http.request) or http_request or request
-        requestFunc({
-            Url = DISCORD_WEBHOOK,
-            Method = "POST",
-            Headers = {["Content-Type"] = "application/json"},
-            Body = HttpService:JSONEncode(data)
-        })
+        requestFunc({Url = DISCORD_WEBHOOK, Method = "POST", Headers = {["Content-Type"] = "application/json"}, Body = HttpService:JSONEncode(data)})
     end)
 end
 
--- Perform the Whitelist Check immediately
-local success, result = pcall(function() return game:HttpGet(GITHUB_RAW_URL) end)
-local isWhitelisted = false
+--[[
+    ╔══════════════════════════════╗
+    ║      L&L SCRIPT v1.0        ║
+    ╚══════════════════════════════╝
+--]]
 
-if success then
-    for line in result:gmatch("[^\r\n]+") do
-        if line:gsub("%s+", "") == HWID then 
-            isWhitelisted = true
-            break
-        end
+
+if _G.TVL_SCRIPT_LOADED then
+    warn('[SCRIPT] Script is already running! Execution blocked.')
+    return
+end
+_G.TVL_SCRIPT_LOADED = true
+print('[SCRIPT] First execution detected, loading script...')
+
+if not game:IsLoaded() then
+    print('[SCRIPT] Waiting for game to load...')
+    game.Loaded:Wait()
+end
+
+-- Additional wait to ensure all services are ready
+print('[SCRIPT] Game loaded, waiting for services...')
+task.wait(1.5)
+
+-- Wait for critical services to be ready
+local Players = game:GetService('Players')
+local LocalPlayer = Players.LocalPlayer
+local RunService = game:GetService('RunService')
+local UserInputService = game:GetService('UserInputService')
+
+-- Ensure PlayerGui is ready
+if LocalPlayer then
+    local timeout = 0
+    while not LocalPlayer:FindFirstChild('PlayerGui') and timeout < 50 do
+        task.wait(0.1)
+        timeout = timeout + 1
+    end
+    if LocalPlayer:FindFirstChild('PlayerGui') then
+        print('[SCRIPT] PlayerGui ready')
+    else
+        warn('[SCRIPT] PlayerGui not ready after timeout - continuing anyway')
     end
 end
 
-if not isWhitelisted then
-    notifyDiscord(false)
-    LocalPlayer:Kick("Unauthorized HWID. Access Denied.")
-    return -- STOP SCRIPT EXECUTION
-else
-    notifyDiscord(true)
+print('[SCRIPT] Initializing GUI...')
+
+-- Global initialization flag - prevents ALL interactions until ready
+_G.__SCRIPT_FULLY_INITIALIZED = false
+
+local Fluent, SaveManager, InterfaceManager
+
+local function loadLibraries()
+    local success, err = pcall(function()
+        Fluent = loadstring(
+            game:HttpGet(
+                'https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua'
+            )
+        )()
+        SaveManager = loadstring(
+            game:HttpGet(
+                'https://raw.githubusercontent.com/dawid-scripts/Fluent/master/Addons/SaveManager.lua'
+            )
+        )()
+        InterfaceManager = loadstring(
+            game:HttpGet(
+                'https://raw.githubusercontent.com/dawid-scripts/Fluent/master/Addons/InterfaceManager.lua'
+            )
+        )()
+    end)
+    
+    if not success then
+        warn('[SCRIPT] Failed to load UI libraries:', err)
+        -- Create stub Fluent to prevent crashes
+        Fluent = { Options = {}, Notify = function() end, CreateWindow = function() return { AddTab = function() return { AddParagraph = function() end, AddToggle = function() return { OnChanged = function() end } end, AddButton = function() return {} end, AddSlider = function() return { OnChanged = function() end } end } end } end }
+        SaveManager = {}
+        InterfaceManager = {}
+        return false
+    end
+    return true
 end
 
+if not loadLibraries() then
+    warn('[SCRIPT] Using stub UI - script will be limited')
+    task.wait(2)
+end
+
+local Window
+pcall(function()
+    Window = Fluent:CreateWindow({
+        Title = 'The Vampire Legends 2',
+        SubTitle = 'By L&L',
+        TabWidth = 160,
+        Size = UDim2.fromOffset(580, 460),
+        Acrylic = true,
+        Theme = 'Dark',
+        MinimizeKey = Enum.KeyCode.K, -- Default keybind, will be overridden by Settings
+    })
+end)
+
+if not Window then
+    warn('[SCRIPT] Failed to create window')
+    Window = { AddTab = function() return { AddParagraph = function() end, AddToggle = function() return { OnChanged = function() end } end } end }
+end
+
+local Options = Fluent.Options
+
+-- Wrap Fluent for safety
+local OriginalNotify = Fluent.Notify or function() end
+function Fluent:Notify(config)
+    if not self or not self.Notify then return end
+    pcall(function()
+        return OriginalNotify(self, config)
+    end)
+end
+
+-- ⭐ MAIN TAB ⭐
+local MainTab = Window:AddTab({ Title = 'Main', Icon = 'home' })
+
+-- 🩺 CURED NOTIFIER (OPTIMIZED - EVENT DRIVEN) 🩺
+-- Variables to track ESP creation timing (prevents race conditions)
+local lastESPCreationTime = {}
+local espCreationInProgress = {}
+
+MainTab:AddParagraph({
+    Title = 'Cured Notifier',
+    Content = 'Get notified when players are cured',
+})
+
+local curedNotifierEnabled = false
+local curedNotified = {}
+local curedConns = { players = {} }
+local playerAddedConn, playerRemovingConn = nil, nil
+
+local function disconnectPlayerCuredConns(p)
+    local bucket = curedConns.players[p]
+    if not bucket then
+        return
+    end
+    curedCheckThrottle[p] = nil -- Clean up throttle cache
+    if bucket.playerCuredConn then
+        pcall(function()
+            bucket.playerCuredConn:Disconnect()
+        end)
+        bucket.playerCuredConn = nil
+    end
+    if bucket.charCuredConn then
+        pcall(function()
+            bucket.charCuredConn:Disconnect()
+        end)
+        bucket.charCuredConn = nil
+    end
+    if bucket.charAddedConn then
+        pcall(function()
+            bucket.charAddedConn:Disconnect()
+        end)
+        bucket.charAddedConn = nil
+    end
+    curedConns.players[p] = nil
+    curedNotified[p] = nil
+end
+
+local curedCheckThrottle = {} -- Throttle cured checks per player
+
+local function handleCuredState(player)
+    local function notifyIfCured()
+        -- Simple throttle to prevent spam (0.5s cooldown per player)
+        local now = tick()
+        local lastCheck = curedCheckThrottle[player] or 0
+        if now - lastCheck < 0.5 then
+            return
+        end
+        curedCheckThrottle[player] = now
+
+        -- Check cured status
+        local isCured = false
+        pcall(function()
+            if player:GetAttribute('Cured') then
+                isCured = true
+            elseif
+                player.Character and player.Character:GetAttribute('Cured')
+            then
+                isCured = true
+            end
+        end)
+
+        if isCured and not curedNotified[player] then
+            curedNotified[player] = true
+            local charName
+            pcall(function()
+                charName = player:GetAttribute('CharacterName')
+                    or (
+                        player.Character
+                        and player.Character:GetAttribute('CharacterName')
+                    )
+            end)
+            charName = charName or player.Name
+            Fluent:Notify({
+                Title = '🩺 Cured',
+                Content = charName .. ' has been cured.',
+                Duration = 3,
+            })
+        elseif not isCured and curedNotified[player] then
+            curedNotified[player] = nil
+        end
+    end
+
+    local bucket = curedConns.players[player]
+    if not bucket then
+        bucket = {}
+        curedConns.players[player] = bucket
+
+        -- Monitor player Cured attribute
+        bucket.playerCuredConn = player
+            :GetAttributeChangedSignal('Cured')
+            :Connect(function()
+                task.defer(notifyIfCured)
+            end)
+
+        -- Monitor character changes
+        bucket.charAddedConn = player.CharacterAdded:Connect(function(char)
+            if bucket.charCuredConn then
+                pcall(function()
+                    bucket.charCuredConn:Disconnect()
+                end)
+                bucket.charCuredConn = nil
+            end
+            if char then
+                -- Monitor character Cured attribute
+                bucket.charCuredConn = char:GetAttributeChangedSignal('Cured')
+                    :Connect(function()
+                        task.defer(notifyIfCured)
+                    end)
+            end
+            task.defer(notifyIfCured)
+        end)
+    end
+
+    -- Setup character monitoring if character exists
+    if player.Character and not (bucket and bucket.charCuredConn) then
+        bucket.charCuredConn = player.Character
+            :GetAttributeChangedSignal('Cured')
+            :Connect(function()
+                task.defer(notifyIfCured)
+            end)
+    end
+
+    -- Initial check
+    task.defer(notifyIfCured)
+end
+
+local CuredNotifierToggle = MainTab:AddToggle('CuredNotifier', {
+    Title = 'Cured Notifier',
+    Default = true,
+})
+
+CuredNotifierToggle:OnChanged(function(Value)
+    curedNotifierEnabled = Value
+    if Value then
+        if not isInitializing then
+            Fluent:Notify({
+                Title = 'Cured Notifier',
+                Content = 'Enabled',
+                Duration = 2,
+            })
+        end
+        -- initialize for existing players with batching to prevent FPS drops
+        task.spawn(function()
+            local playerList = Players:GetPlayers()
+            for i, p in ipairs(playerList) do
+                if p ~= Players.LocalPlayer then
+                    task.defer(function()
+                        handleCuredState(p)
+                    end)
+                end
+                -- Yield every 3 players to prevent FPS drops
+                if i % 3 == 0 then
+                    task.wait()
+                end
+            end
+        end)
+        -- connect new players (idempotent)
+        if not playerAddedConn then
+            playerAddedConn = Players.PlayerAdded:Connect(function(p)
+                if curedNotifierEnabled then
+                    handleCuredState(p)
+                end
+            end)
+        end
+        if not playerRemovingConn then
+            playerRemovingConn = Players.PlayerRemoving:Connect(function(p)
+                disconnectPlayerCuredConns(p)
+            end)
+        end
+    else
+        if not isInitializing then
+            Fluent:Notify({
+                Title = 'Cured Notifier',
+                Content = 'Disabled',
+                Duration = 2,
+            })
+        end
+        -- disconnect global listeners
+        if playerAddedConn then
+            pcall(function()
+                playerAddedConn:Disconnect()
+            end)
+            playerAddedConn = nil
+        end
+        if playerRemovingConn then
+            pcall(function()
+                playerRemovingConn:Disconnect()
+            end)
+            playerRemovingConn = nil
+        end
+        -- disconnect all per-player listeners
+        for p, _ in pairs(curedConns.players) do
+            disconnectPlayerCuredConns(p)
+        end
+        curedNotified = {}
+    end
+end)
+
 -- ==========================================
--- 2. AUTO DEPLOYER LOGIC (Only runs if Whitelisted)
+-- AUTO DEPLOYER LOGIC
 -- ==========================================
 
 -- EXTREME CONFIGURATION
@@ -72,11 +364,6 @@ local running = false
 local spawnFunc, confirmFunc, yesFunc = nil, nil, nil
 local labelConnection = nil
 local getInfo = debug and debug.getinfo or getinfo
-
--- Load Fluent and set Pink Style
-local Fluent = loadstring(game:HttpGet('https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua'))()
-Fluent:SetTheme("Dark")
-Fluent.AccentColor = Color3.fromRGB(255, 105, 180) 
 
 -- FUNCTION SCANNER
 local function scanFunctions()
@@ -172,4 +459,1367 @@ UserInputService.InputBegan:Connect(function(input, gpe)
         scanFunctions()
         monitorAndDeploy()
     end
+end)
+
+-- ⚔️ COMBAT TAB - SILENT AIM & RANGE EXPANDER ⚔️
+local CombatTab = Window:AddTab({ Title = 'Combat', Icon = 'sword' })
+
+CombatTab:AddParagraph({
+    Title = '⚔️ Combat System',
+    Content = 'Silent Aim and Range Expander for enhanced combat',
+})
+
+-- Services for Combat
+local Workspace = game:GetService('Workspace')
+local ReplicatedStorage = game:GetService('ReplicatedStorage')
+local PlayerScripts = LocalPlayer.PlayerScripts
+local Mouse = LocalPlayer:GetMouse()
+
+-- Module References
+local AbilityClient = pcall(function() return require(PlayerScripts.ClientServices.AbilityClient) end) and require(PlayerScripts.ClientServices.AbilityClient) or {}
+local AbilityData = pcall(function() return require(ReplicatedStorage.ModuleScripts.Data.AbilityData) end) and require(ReplicatedStorage.ModuleScripts.Data.AbilityData) or {}
+local HitDetection = pcall(function() return require(ReplicatedStorage.ModuleScripts.TargetSystem.HitDetection) end) and require(ReplicatedStorage.ModuleScripts.TargetSystem.HitDetection) or {}
+local GameCollision = pcall(function() return require(ReplicatedStorage.ModuleScripts.GameCollision) end) and require(ReplicatedStorage.ModuleScripts.GameCollision) or {}
+local AbilityEnums = pcall(function() return require(ReplicatedStorage.ModuleScripts.Enums.AbilityName) end) and require(ReplicatedStorage.ModuleScripts.Enums.AbilityName) or {}
+
+-- Combat Configuration
+local CombatConfig = {
+    SilentAim = false,
+    RangeExpander = false,
+    RangeMultiplier = 1.5 -- 50% range increase
+}
+
+-- ==========================================
+-- AUTO HEAD SIPHON LOGIC
+-- ==========================================
+
+local AutoHeadSiphonConfig = {
+    Enabled = false,
+    Delay = 2.0,
+}
+
+local headSiphonHooked = false
+
+local function hookHeadSiphonModule()
+    if headSiphonHooked then
+        return
+    end
+
+    if not LocalPlayer or not LocalPlayer:FindFirstChild('PlayerScripts') then
+        return
+    end
+
+    local success, headSiphonModule = pcall(function()
+        return require(LocalPlayer.PlayerScripts.ModuleScripts.AbilityHandler.HeadSiphon)
+    end)
+    if not success or not headSiphonModule then
+        return
+    end
+
+    if headSiphonModule.startPrompt then
+        local originalStartPrompt = headSiphonModule.startPrompt
+        headSiphonModule.startPrompt = function(u37)
+            local result = originalStartPrompt(u37)
+            if AutoHeadSiphonConfig.Enabled and not u37 then -- victim mode
+                task.spawn(function()
+                    local delayTime = math.clamp(AutoHeadSiphonConfig.Delay or 2, 0.25, 10)
+                    task.wait(delayTime)
+                    pcall(function()
+                        local u21 = game:GetService("ReplicatedStorage").Remotes.AbilityService.ToServer.SiphonEscape
+                        u21:FireServer()
+                    end)
+                end)
+            end
+            return result
+        end
+        headSiphonHooked = true
+        print('[SCRIPT] Auto Head Siphon hook installed')
+    end
+end
+
+task.spawn(function()
+    while true do
+        task.wait(2)
+        hookHeadSiphonModule()
+        if headSiphonHooked then
+            break
+        end
+    end
+end)
+
+-- Disabled Abilities for Silent Aim
+local DISABLED_ABILITIES = {
+    [AbilityEnums.MuseTeleport] = true,
+    [AbilityEnums.PsychicTeleport] = true,
+    [AbilityEnums.DarkJosieTeleport] = true,
+    [AbilityEnums.VisSeraPortus] = true,
+    [AbilityEnums.Siphon] = true,
+}
+
+local GAMECOLLISION_ABILITIES = {
+    [AbilityEnums.Vido] = true,
+    [AbilityEnums.Ictus] = true,
+}
+
+local function getCurrentAbilityData()
+    local ability = pcall(function() return AbilityClient.getEquippedAbility() end) and AbilityClient.getEquippedAbility() or nil
+    if not ability then return nil, nil, 200 end
+
+    local data = AbilityData[ability]
+    local baseRange = (data and data.range) or 200
+
+    return ability, data, baseRange
+end
+
+local function findClosestEntityToMouse(maxRange)
+    local camera = Workspace.CurrentCamera
+    local character = LocalPlayer.Character
+    if not (character and camera) then return nil end
+
+    local root = character:FindFirstChild("HumanoidRootPart")
+    if not root then return nil end
+
+    local entities = Workspace:FindFirstChild("Entities")
+    if not entities then return nil end
+
+    local bestEntity = nil
+    local bestScore = math.huge
+
+    for _, entity in ipairs(entities:GetChildren()) do
+        if entity:IsA("Model") and entity ~= character then
+            local humanoid = entity:FindFirstChild("Humanoid")
+            local rootPart = entity:FindFirstChild("HumanoidRootPart") or entity.PrimaryPart
+
+            if humanoid and humanoid.Health > 0 and rootPart then
+                local distance = (rootPart.Position - root.Position).Magnitude
+
+                if distance <= maxRange then
+                    local screenPos, onScreen = camera:WorldToScreenPoint(rootPart.Position)
+
+                    if onScreen then
+                        local screenDx = screenPos.X - Mouse.X
+                        local screenDy = screenPos.Y - Mouse.Y
+                        local screenDist = math.sqrt(screenDx * screenDx + screenDy * screenDy)
+
+                        local score = screenDist * 0.98 + distance * 0.02
+
+                        if score < bestScore then
+                            bestScore = score
+                            bestEntity = entity
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    return bestEntity
+end
+
+local function isAbilityHitscanRay(params)
+    if not params or not params.FilterDescendantsInstances then return false end
+    if params.CollisionGroup ~= "RaycastExclusion" then return false end
+
+    local entities = Workspace:FindFirstChild("Entities")
+    local localChar = LocalPlayer and LocalPlayer.Character
+
+    if params.FilterType == Enum.RaycastFilterType.Include then
+        for _, inst in ipairs(params.FilterDescendantsInstances) do
+            if inst == entities or inst.Name == "Entities" then
+                return true
+            end
+        end
+        return false
+    end
+
+    if params.FilterType == Enum.RaycastFilterType.Exclude then
+        for _, inst in ipairs(params.FilterDescendantsInstances) do
+            if inst == localChar then
+                return true
+            end
+        end
+        return false
+    end
+
+    return false
+end
+
+-- Hook HitDetection.Hitscan
+local originalHitscan
+if HitDetection and HitDetection.Hitscan then
+    originalHitscan = hookfunction(HitDetection.Hitscan, function(targetInfo)
+        if not CombatConfig.SilentAim and not CombatConfig.RangeExpander then
+            return originalHitscan(targetInfo)
+        end
+
+        local ability, data, baseRange = getCurrentAbilityData()
+
+        if ability and DISABLED_ABILITIES[ability] then
+            return originalHitscan(targetInfo)
+        end
+
+        local searchRange = CombatConfig.RangeExpander 
+            and (baseRange * CombatConfig.RangeMultiplier) 
+            or baseRange
+
+        local entity = findClosestEntityToMouse(searchRange)
+
+        if entity then
+            local humanoid = entity:FindFirstChild("Humanoid")
+            if humanoid and humanoid.Health > 0 and entity ~= LocalPlayer.Character then
+                return entity
+            end
+        end
+
+        return originalHitscan(targetInfo)
+    end)
+end
+
+-- Hook HitDetection.HitscanMobile
+local originalHitscanMobile
+if HitDetection and HitDetection.HitscanMobile then
+    originalHitscanMobile = hookfunction(HitDetection.HitscanMobile, function(targetInfo, target)
+        if not CombatConfig.SilentAim and not CombatConfig.RangeExpander then
+            return originalHitscanMobile(targetInfo, target)
+        end
+
+        local ability, data, baseRange = getCurrentAbilityData()
+
+        if ability and DISABLED_ABILITIES[ability] then
+            return originalHitscanMobile(targetInfo, target)
+        end
+
+        local searchRange = CombatConfig.RangeExpander
+            and (baseRange * CombatConfig.RangeMultiplier)
+            or baseRange
+
+        local entity = findClosestEntityToMouse(searchRange)
+
+        if entity then
+            local humanoid = entity:FindFirstChild("Humanoid")
+            if humanoid and humanoid.Health > 0 and entity ~= LocalPlayer.Character then
+                return entity
+            end
+        end
+
+        return originalHitscanMobile(targetInfo, target)
+    end)
+end
+
+-- Hook GameCollision.Hitscan
+local originalGameCollisionHitscan
+if GameCollision and GameCollision.Hitscan then
+    originalGameCollisionHitscan = hookfunction(GameCollision.Hitscan, function(origin, direction, distance, raycastParams, ...)
+        if not CombatConfig.SilentAim and not CombatConfig.RangeExpander then
+            return originalGameCollisionHitscan(origin, direction, distance, raycastParams, ...)
+        end
+
+        -- Don't modify vertical raycasts (jump/gravity detection)
+        if math.abs(direction.Y) > 0.8 then
+            return originalGameCollisionHitscan(origin, direction, distance, raycastParams, ...)
+        end
+
+        -- Don't modify raycasts from non-ability sources
+        local camera = Workspace.CurrentCamera
+        if not camera or (origin - camera.CFrame.Position).Magnitude > 25 then
+            return originalGameCollisionHitscan(origin, direction, distance, raycastParams, ...)
+        end
+
+        -- Don't apply expansion to short raycasts (likely movement/jump related)
+        if distance < 15 then
+            return originalGameCollisionHitscan(origin, direction, distance, raycastParams, ...)
+        end
+
+        local expandedDistance = CombatConfig.RangeExpander
+            and (distance * CombatConfig.RangeMultiplier)
+            or distance
+
+        local searchRange = expandedDistance
+        local entity = findClosestEntityToMouse(searchRange)
+
+        if entity then
+            local humanoid = entity:FindFirstChild("Humanoid")
+            local targetPart = entity:FindFirstChild("HumanoidRootPart") or entity.PrimaryPart
+
+            if humanoid and humanoid.Health > 0 and targetPart and entity ~= LocalPlayer.Character then
+                local fakeResult = {
+                    Instance = targetPart,
+                    Position = targetPart.Position,
+                    Normal = (origin - targetPart.Position).Unit,
+                    Distance = (origin - targetPart.Position).Magnitude,
+                    Material = Enum.Material.Plastic
+                }
+                return fakeResult
+            end
+        end
+
+        return originalGameCollisionHitscan(origin, direction, expandedDistance, raycastParams, ...)
+    end)
+end
+
+-- Silent Aim Toggle
+local SilentAimToggle = CombatTab:AddToggle('SilentAim', {
+    Title = 'Silent Aim',
+    Description = 'Automatically target closest enemy to cursor',
+    Default = false,
+})
+
+SilentAimToggle:OnChanged(function(Value)
+    CombatConfig.SilentAim = Value
+    Fluent:Notify({
+        Title = '🎯 Silent Aim',
+        Content = Value and 'Enabled' or 'Disabled',
+        Duration = 2,
+    })
+    print('[COMBAT] Silent Aim ' .. (Value and 'enabled' or 'disabled'))
+end)
+
+-- Range Expander Toggle
+local RangeExpanderToggle = CombatTab:AddToggle('RangeExpander', {
+    Title = 'Range Expander',
+    Description = 'Increase ability range by 50% (1.5x multiplier)',
+    Default = false,
+})
+
+RangeExpanderToggle:OnChanged(function(Value)
+    CombatConfig.RangeExpander = Value
+    Fluent:Notify({
+        Title = '📏 Range Expander',
+        Content = Value and 'Enabled (1.5x range)' or 'Disabled',
+        Duration = 2,
+    })
+    print('[COMBAT] Range Expander ' .. (Value and 'enabled (1.5x)' or 'disabled'))
+end)
+
+-- Auto Head Siphon Section
+CombatTab:AddParagraph({
+    Title = 'Auto Head Siphon',
+    Content = 'Automatically escape from Head Siphon after a delay',
+})
+
+local AutoHeadSiphonToggle = CombatTab:AddToggle('AutoHeadSiphon', {
+    Title = 'Auto Head Siphon',
+    Description = 'Auto-complete the Head Siphon escape prompt after a delay',
+    Default = false,
+})
+
+AutoHeadSiphonToggle:OnChanged(function(Value)
+    AutoHeadSiphonConfig.Enabled = Value
+    Fluent:Notify({
+        Title = 'Auto Head Siphon',
+        Content = Value and 'Enabled' or 'Disabled',
+        Duration = 2,
+    })
+    if Value then
+        hookHeadSiphonModule()
+    end
+end)
+
+local AutoHeadSiphonDelaySlider = CombatTab:AddSlider('AutoHeadSiphonDelay', {
+    Title = 'Siphon Auto-Complete Delay',
+    Description = 'Seconds before the Head Siphon prompt auto-completes',
+    Min = 0.5,
+    Max = 5,
+    Default = 2,
+    Rounding = 1,
+})
+
+AutoHeadSiphonDelaySlider:OnChanged(function(Value)
+    AutoHeadSiphonConfig.Delay = Value
+end)
+
+-- Info Section
+CombatTab:AddParagraph({
+    Title = 'ℹ️ Information',
+    Content = 'Silent Aim targets the closest enemy to your cursor. Range Expander increases your ability range by 50%. Auto Head Siphon automatically escapes siphon attempts after the set delay.',
+})
+
+-- ⚡ ESP TAB ⚡
+local ESPTab = Window:AddTab({ Title = 'ESP', Icon = 'eye' })
+
+ESPTab:AddParagraph({
+    Title = '👁️ ESP System',
+    Content = 'Entity tracking with visual displays and range information',
+})
+
+local ESPToggle = ESPTab:AddToggle('ESPEnabled', {
+    Title = 'ESP Display',
+    Description = 'Show player and item information overlays',
+    Default = true,
+})
+
+ESPToggle:OnChanged(function(Value)
+    ESPEnabled = Value
+    Fluent:Notify({
+        Title = '👁️ ESP',
+        Content = Value and 'Enabled' or 'Disabled',
+        Duration = 2,
+    })
+    print('[ESP] Display ' .. (Value and 'enabled' or 'disabled'))
+end)
+
+ESPTab:AddParagraph({
+    Title = '📊 Features',
+    Content = '• Real-time player tracking\n• Character name display\n• Species type with color coding\n• Distance calculation\n• Equipped item tracking\n• White Oak Stake detection',
+})
+
+ESPTab:AddParagraph({
+    Title = 'ℹ️ Information',
+    Content = 'ESP shows nearby players with their character names, species types (color-coded), and held items. Distances are calculated in studs from your position. White Oak Stakes are highlighted separately for easy spotting.',
+})
+
+-- ⚙️ SETTINGS TAB ⚙️
+local SettingsTab = Window:AddTab({ Title = 'Settings', Icon = 'settings' })
+
+SettingsTab:AddParagraph({
+    Title = '⚙️ Settings',
+    Content = 'Customize your interface appearance and keybinds',
+})
+
+-- Setup InterfaceManager for theme and keybind
+if InterfaceManager and InterfaceManager.SetLibrary then
+    pcall(function()
+        InterfaceManager:SetLibrary(Fluent)
+        InterfaceManager:SetFolder('TVL2Script')
+        InterfaceManager:BuildInterfaceSection(SettingsTab)
+    end)
+else
+    warn('[SCRIPT] InterfaceManager not available')
+end
+
+-- Server Info Section
+SettingsTab:AddParagraph({
+    Title = '🌐 Server Information',
+    Content = 'View server details and connection info',
+})
+
+local ServerInfoButton = SettingsTab:AddButton({
+    Title = 'Show Server Info',
+    Description = 'Display server location and ping',
+    Callback = function()
+        local Stats = game:GetService('Stats')
+        local LocalizationService = game:GetService('LocalizationService')
+
+        -- Get ping (in milliseconds)
+        local ping =
+            math.floor(Stats.Network.ServerStatsItem['Data Ping']:GetValue())
+
+        -- Get server region
+        local serverRegion = 'Unknown'
+        local success, result = pcall(function()
+            return LocalizationService:GetCountryRegionForPlayerAsync(
+                game.Players.LocalPlayer
+            )
+        end)
+
+        if success and result then
+            serverRegion = result
+        end
+
+        -- Get server JobId
+        local jobId = game.JobId
+        if jobId == '' then
+            jobId = 'Private Server / Studio'
+        end
+
+        -- Get player count
+        local playerCount = #game.Players:GetPlayers()
+        local maxPlayers = game.Players.MaxPlayers
+
+        -- Format the information
+        local infoText = string.format(
+            '🌍 Region: %s\n'
+                .. '📡 Ping: %d ms\n'
+                .. '👥 Players: %d/%d\n'
+                .. '🆔 Job ID: %s',
+            serverRegion,
+            ping,
+            playerCount,
+            maxPlayers,
+            jobId
+        )
+
+        -- Display in notification
+        Fluent:Notify({
+            Title = '🌐 Server Information',
+            Content = infoText,
+            Duration = 8,
+        })
+
+        -- Also print to console for easy copying
+        print('=== SERVER INFO ===')
+        print('Region:', serverRegion)
+        print('Ping:', ping, 'ms')
+        print('Players:', playerCount .. '/' .. maxPlayers)
+        print('Job ID:', jobId)
+        print('==================')
+    end,
+})
+
+-- Admin Commands Section
+SettingsTab:AddParagraph({
+    Title = 'Admin Commands',
+    Content = 'Load admin command scripts',
+})
+
+-- IMPROVED INFINITE YIELD BUTTON
+local InfiniteYieldButton = SettingsTab:AddButton({
+    Title = 'Infinite Yield',
+    Description = 'Load Infinite Yield admin commands',
+    Callback = function()
+        Fluent:Notify({
+            Title = '⏳ Infinite Yield',
+            Content = 'Loading admin commands...',
+            Duration = 2,
+        })
+        
+        -- Load Infinite Yield with comprehensive error handling
+        local success, err = pcall(function()
+            local sources = {
+                'https://raw.githubusercontent.com/EdgeIY/infiniteyield/master/source',
+                'https://raw.githubusercontent.com/EdgeIY/infiniteyield/main/source',
+                'https://cdn.jsdelivr.net/gh/EdgeIY/infiniteyield@master/source',
+            }
+            
+            local loaded = false
+            local lastError = nil
+            
+            -- Try each source until one works
+            for _, sourceUrl in ipairs(sources) do
+                local trySuccess, tryErr = pcall(function()
+                    local source = game:HttpGet(sourceUrl)
+                    if source and source ~= '' then
+                        loadstring(source)()
+                        loaded = true
+                        print('[SCRIPT] Infinite Yield loaded from:', sourceUrl)
+                        return true
+                    end
+                    return false
+                end)
+                
+                if loaded then
+                    return true
+                end
+                
+                if tryErr then
+                    lastError = tryErr
+                end
+            end
+            
+            if not loaded then
+                error(lastError or 'All Infinite Yield sources failed')
+            end
+            
+            return true
+        end)
+        
+        if success then
+            Fluent:Notify({
+                Title = '✅ Infinite Yield Loaded',
+                Content = 'Commands enabled! Type /e help for commands',
+                Duration = 4,
+            })
+            print('[SCRIPT] ✅ Infinite Yield loaded successfully')
+            print('[SCRIPT] Commands: /e help, /e admin, /e kill, /e teleport, etc.')
+        else
+            Fluent:Notify({
+                Title = '❌ Infinite Yield Failed',
+                Content = 'Could not load from any source. Check console.',
+                Duration = 5,
+            })
+            warn('[SCRIPT] Failed to load Infinite Yield:')
+            warn('[SCRIPT] Error:', tostring(err))
+            print('[SCRIPT] Try these commands manually:')
+            print('[SCRIPT] /e help')
+            print('[SCRIPT] /e kill [player]')
+            print('[SCRIPT] /e teleport [player]')
+        end
+    end,
+})
+
+-- ⚡ CPS BYPASS SYSTEM ⚡
+local function runOldCPSBypass()
+    local Players = game:GetService("Players")
+    local lp = Players.LocalPlayer
+    
+    if not game:IsLoaded() then
+        print("[CPS Bypass] Waiting for game to load...")
+        game.Loaded:Wait()
+    end
+    
+    if not lp then
+        repeat
+            task.wait(0.1)
+            lp = Players.LocalPlayer
+        until lp
+    end
+    
+    local character = lp.Character or lp.CharacterAdded:Wait()
+    if character and not character:FindFirstChild("HumanoidRootPart") then
+        character:WaitForChild("HumanoidRootPart", 10)
+    end
+    
+    local playerScripts = lp:WaitForChild("PlayerScripts", 10)
+    if not playerScripts then
+        lp:Kick("PlayerScripts Load Failed")
+        return
+    end
+    
+    task.wait(3)
+    
+    local modulePath = game:GetService("StarterPlayer")
+        :WaitForChild("StarterPlayerScripts")
+        :WaitForChild("ModuleScripts")
+        :WaitForChild("AutoclickDetection")
+    
+    local module
+    local success = false
+    
+    for i = 1, 10 do
+        success, module = pcall(require, modulePath)
+        if success then
+            break
+        end
+        task.wait(1)
+    end
+    
+    if success and module then
+        local u18 = debug.getupvalue(module.init, 12)
+        if type(u18) == "function" then
+            local function myHook()
+                print("[CPS Bypass] Successful")
+                return nil
+            end
+            hookfunction(u18, myHook)
+            
+            local currentUpvalue = debug.getupvalue(module.init, 12)
+            if currentUpvalue == myHook or (islclosure and islclosure(currentUpvalue)) then
+                print("[CPS Bypass] Hooked")
+            else
+                lp:Kick("Verification Failed")
+            end
+        else
+            lp:Kick("Index 12 Not Found")
+        end
+    else
+        lp:Kick("Module Load Failed")
+    end
+end
+
+task.defer(runOldCPSBypass)
+
+-- ⚡ ANTI ANNOY SYSTEM ⚡
+--[[
+    Standalone Anti Annoy Script
+
+    This script removes or neutralises common camera shake and visual disturbance
+    effects from abilities in the game.  It does not depend on any external UI
+    libraries and can be executed by itself.  When loaded, it will disable
+    camera shake functions and hook into various ability modules to block
+    blinding overlays, forced sleep, and other effects that obscure your
+    screen.  You can safely require or execute this file without dragging
+    in the rest of the TVL mini framework.
+
+    Author: Assistant
+--]]
+
+-- Prevent duplicate execution of this script.  If it has already been run
+-- in the current environment, subsequent calls return immediately.
+if _G.ANTI_ANNOY_LOADED then
+    warn('[ANTI ANNOY] Script is already loaded, skipping.')
+else
+    _G.ANTI_ANNOY_LOADED = true
+
+    -- Grab commonly used services up front.  This reduces repeated lookups
+    -- later in the script and makes the code easier to read.
+    local AAPlayers = game:GetService('Players')
+    local AAReplicatedStorage = game:GetService('ReplicatedStorage')
+    local AALocalPlayer = AAPlayers.LocalPlayer
+
+    --[[
+        disableAllShakeFunctions
+
+        Iterates through the Lua garbage collector to find any functions or table
+        fields responsible for camera shake (e.g. `SmallShake`, `StartShake`,
+        `_startCameraShaker`).  Each of these functions is replaced with a no‑op
+        so they do nothing when called.  The number of functions disabled is
+        printed to the output.  This function runs in a separate task to avoid
+        freezing the main thread while scanning the garbage collector.
+    ]]
+    local function disableAllShakeFunctions()
+        -- Run GC scan asynchronously to prevent lag
+        task.spawn(function()
+            local disabledCount = 0
+            local gc = (getgc and getgc(true)) or {}
+            local shakeNames = {
+                SmallShake = true, StartShake = true, ShakeSustain = true,
+                smallShake = true, startShake = true, shakeSustain = true,
+                _startCameraShaker = true
+            }
+            
+            local totalItems = #gc
+            local batchSize = 100  -- Process in small batches to avoid lag
+            
+            for i, v in ipairs(gc) do
+                -- Yield every batch to prevent frame drops
+                if i % batchSize == 0 then
+                    task.wait()
+                end
+                
+                if type(v) == 'function' then
+                    local ok, info = pcall(debug.getinfo, v)
+                    if ok and info and info.name and shakeNames[info.name] then
+                        pcall(function()
+                            hookfunction(v, function() end)
+                            disabledCount = disabledCount + 1
+                        end)
+                    end
+                elseif type(v) == 'table' then
+                    pcall(function()
+                        if rawget(v, '_startCameraShaker') and type(v._startCameraShaker) == 'function' then
+                            v._startCameraShaker = function() end
+                            disabledCount = disabledCount + 1
+                        end
+                    end)
+                end
+            end
+            print('[ANTI ANNOY] Disabled ' .. disabledCount .. ' camera shake function(s) from ' .. totalItems .. ' GC items')
+        end)
+    end
+
+    --[[
+        Ability hook helpers
+
+        Each of the following functions attempts to require the corresponding
+        ability module and override one or more of its methods that would
+        normally produce a disruptive effect (such as a screen black out or
+        blinding overlay).  When successful, the overridden method prints a
+        message indicating it has been blocked and then performs no action.
+
+        Each hook returns true on success and false on failure, allowing the
+        caller to count how many hooks were applied.
+    ]]
+    local function hookSolarisImpulsus()
+        local success, abilityHandler = pcall(function()
+            return require(AALocalPlayer.PlayerScripts.ModuleScripts.AbilityHandler.SolarisImpulsus)
+        end)
+        if success and abilityHandler then
+            abilityHandler.victim = function()
+                print('[ANTI ANNOY] Blocked SolarisImpulsus blinding effect')
+            end
+            return true
+        end
+        return false
+    end
+
+    local function hookPsychicCompulsionSleep()
+        local success, sleepModule = pcall(function()
+            return require(AALocalPlayer.PlayerScripts.ModuleScripts.AbilityHandler.PsychicCompulsion.Sleep)
+        end)
+        if success and sleepModule then
+            sleepModule.activate = function()
+                print('[ANTI ANNOY] Blocked PsychicCompulsion Sleep')
+            end
+            return true
+        end
+        return false
+    end
+
+    local function hookAdSomnum()
+        local success, adSomnumModule = pcall(function()
+            return require(AALocalPlayer.PlayerScripts.ModuleScripts.AbilityHandler.AdSomnum)
+        end)
+        if success and adSomnumModule then
+            adSomnumModule.victim = function()
+                print('[ANTI ANNOY] Blocked AdSomnum Sleep')
+            end
+            return true
+        end
+        return false
+    end
+
+    local function hookIllusionAttack()
+        local success, illusionModule = pcall(function()
+            return require(AALocalPlayer.PlayerScripts.ModuleScripts.AbilityHandler.IllusionAttack)
+        end)
+        if success and illusionModule then
+            illusionModule.punchEffect = function(target)
+                local RS = AAReplicatedStorage
+                local Debris = game:GetService('Debris')
+                local effectTemplate = pcall(function() return RS.Assets.Particles:WaitForChild('CombatHit') end)
+                if target and target:FindFirstChild('PrimaryPart') then
+                    pcall(function()
+                        local SoundManager = require(RS.ModuleScripts.Effects.SoundManager)
+                        local AbilityName = require(RS.ModuleScripts.Enums.AbilityName)
+                        local AbilityData = require(RS.ModuleScripts.Data.AbilityData)
+                        local abilitySounds = AbilityData[AbilityName.IllusionAttack].abilitySounds
+                        SoundManager.playLocalSoundOnPart(target.PrimaryPart, abilitySounds.punch)
+                    end)
+                end
+                print('[ANTI ANNOY] Blocked IllusionAttack blackout')
+            end
+            return true
+        end
+        return false
+    end
+
+    local function hookSol()
+        local success, solModule = pcall(function()
+            return require(AALocalPlayer.PlayerScripts.ModuleScripts.AbilityHandler.Sol)
+        end)
+        if success and solModule then
+            solModule.victim = function()
+                pcall(function()
+                    local RS = AAReplicatedStorage
+                    local AbilityName = require(RS.ModuleScripts.Enums.AbilityName)
+                    local AbilityData = require(RS.ModuleScripts.Data.AbilityData)
+                    local animId = AbilityData[AbilityName.Sol].abilityAnimations.victim
+                    local anim = Instance.new('Animation')
+                    anim.AnimationId = animId
+                    if AALocalPlayer.Character then
+                        local track = AALocalPlayer.Character.Humanoid.Animator:LoadAnimation(anim)
+                        track:Play(0.4)
+                    end
+                end)
+                print('[ANTI ANNOY] Blocked Sol blinding (animation kept)')
+            end
+            return true
+        end
+        return false
+    end
+
+    local function hookSnapNeck()
+        local success, snapNeckModule = pcall(function()
+            return require(AALocalPlayer.PlayerScripts.ModuleScripts.AbilityHandler.SnapNeck)
+        end)
+        if success and snapNeckModule then
+            snapNeckModule.begin = function()
+                print('[ANTI ANNOY] Blocked SnapNeck blackout')
+            end
+            snapNeckModule.finish = function() end
+            return true
+        end
+        return false
+    end
+
+    local function hookNecksnapLift()
+        local success, module = pcall(function()
+            return require(AALocalPlayer.PlayerScripts.ModuleScripts.AbilityHandler.NecksnapLift)
+        end)
+        if success and module then
+            module.knockout = function()
+                print('[ANTI ANNOY] Blocked NecksnapLift blackout')
+            end
+            return true
+        end
+        return false
+    end
+
+    local function hookOssox()
+        local success, module = pcall(function()
+            return require(AALocalPlayer.PlayerScripts.ModuleScripts.AbilityHandler.Ossox)
+        end)
+        if success and module then
+            module.begin = function(caster, victim)
+                pcall(function()
+                    if victim == AALocalPlayer then
+                        local AbilityData = require(AAReplicatedStorage.ModuleScripts.Data.AbilityData)
+                        local AbilityName = require(AAReplicatedStorage.ModuleScripts.Enums.AbilityName)
+                        local victimAnimId = AbilityData[AbilityName.Ossox].abilityAnimations.victim
+                        local anim = Instance.new('Animation')
+                        anim.AnimationId = victimAnimId
+                        AALocalPlayer.Character.Humanoid.Animator:LoadAnimation(anim):Play()
+                    end
+                end)
+                print('[ANTI ANNOY] Blocked Ossox blackout (animation kept)')
+            end
+            return true
+        end
+        return false
+    end
+
+    local function hookMenedekQualSurenta()
+        local success, module = pcall(function()
+            return require(AALocalPlayer.PlayerScripts.ModuleScripts.AbilityHandler.MenedekQualSurenta)
+        end)
+        if success and module then
+            module.begin = function(caster, victim)
+                pcall(function()
+                    if victim == AALocalPlayer then
+                        local AbilityData = require(AAReplicatedStorage.ModuleScripts.Data.AbilityData)
+                        local AbilityName = require(AAReplicatedStorage.ModuleScripts.Enums.AbilityName)
+                        local animId = AbilityData[AbilityName.MenedekQualSurenta].abilityAnimations.victim
+                        local anim = Instance.new('Animation')
+                        anim.AnimationId = animId
+                        AALocalPlayer.Character.Humanoid.Animator:LoadAnimation(anim):Play()
+                    end
+                end)
+                print('[ANTI ANNOY] Blocked MenedekQualSurenta blackout (animation kept)')
+            end
+            return true
+        end
+        return false
+    end
+
+    local function hookIncendia()
+        local success, incendiaModule = pcall(function()
+            return require(AALocalPlayer.PlayerScripts.ModuleScripts.AbilityHandler.Incendia)
+        end)
+        if success then
+            local ppSuccess, ppManager = pcall(function()
+                return require(AAReplicatedStorage.ModuleScripts.Effects.PostProcessingEffectsManager)
+            end)
+            if ppSuccess and ppManager then
+                ppManager.sunBurn = function()
+                    print('[ANTI ANNOY] Blocked Incendia sunburn overlay')
+                end
+                return true
+            end
+        end
+        return false
+    end
+
+    local function hookSunbeam()
+        local success, sunbeamModule = pcall(function()
+            return require(AALocalPlayer.PlayerScripts.ModuleScripts.AbilityHandler.Sunbeam)
+        end)
+        if success and sunbeamModule then
+            sunbeamModule.victim = function()
+                pcall(function()
+                    local AbilityData = require(AAReplicatedStorage.ModuleScripts.Data.AbilityData)
+                    local AbilityName = require(AAReplicatedStorage.ModuleScripts.Enums.AbilityName)
+                    local victimAnimId = AbilityData[AbilityName.Sol].abilityAnimations.victim
+                    local anim = Instance.new('Animation')
+                    anim.AnimationId = victimAnimId
+                    if AALocalPlayer.Character then
+                        local track = AALocalPlayer.Character.Humanoid.Animator:LoadAnimation(anim)
+                        track:Play(0.4)
+                    end
+                end)
+                print('[ANTI ANNOY] Blocked Sunbeam yellow screen flash (animation kept)')
+            end
+            return true
+        end
+        return false
+    end
+
+    --[[
+        runAntiAnnoy
+
+        Enables all anti‑annoy measures.  It disables camera shake immediately,
+        waits briefly for the player's ModuleScripts to load, then applies each
+        ability hook.  The hooks are re‑applied periodically every 30 seconds
+        in case the game reloads any modules.  The number of successfully
+        applied hooks is printed after each pass.
+    ]]
+    local function runAntiAnnoy()
+        print('[ANTI ANNOY] Initialising...')
+        -- Start GC scan asynchronously (non-blocking)
+        disableAllShakeFunctions()
+
+        -- Wait for ModuleScripts to exist to prevent require() errors
+        if AALocalPlayer and AALocalPlayer.PlayerScripts:FindFirstChild('ModuleScripts') then
+            local hookFunctions = {
+                {name = 'SolarisImpulsus', func = hookSolarisImpulsus},
+                {name = 'PsychicCompulsionSleep', func = hookPsychicCompulsionSleep},
+                {name = 'AdSomnum', func = hookAdSomnum},
+                {name = 'IllusionAttack', func = hookIllusionAttack},
+                {name = 'Sol', func = hookSol},
+                {name = 'SnapNeck', func = hookSnapNeck},
+                {name = 'NecksnapLift', func = hookNecksnapLift},
+                {name = 'Ossox', func = hookOssox},
+                {name = 'MenedekQualSurenta', func = hookMenedekQualSurenta},
+                {name = 'Incendia', func = hookIncendia},
+                {name = 'Sunbeam', func = hookSunbeam}
+            }
+
+            -- Function to apply all ability hooks and count successes
+            local function applyHooks()
+                local count = 0
+                for _, hook in ipairs(hookFunctions) do
+                    if hook.func() then
+                        count = count + 1
+                    end
+                end
+                print('[ANTI ANNOY] Ability hooks applied: ' .. count .. '/11')
+                return count
+            end
+
+            -- Apply once immediately
+            local initialCount = applyHooks()
+
+            -- Only re-apply hooks if not all modules were found initially
+            if initialCount < 11 then
+                task.spawn(function()
+                    while true do
+                        task.wait(30)
+                        local currentCount = applyHooks()
+                        if currentCount >= 11 then
+                            print('[ANTI ANNOY] All hooks cached, stopping periodic checks.')
+                            break
+                        end
+                    end
+                end)
+            end
+            print('[ANTI ANNOY] All blockers active.')
+        end
+    end
+
+    -- Kick off the anti‑annoy functionality automatically on script load
+    runAntiAnnoy()
+end
+
+-- ⚡ ESP SYSTEM ⚡
+local ESPPlayers = game:GetService("Players")
+local ESPReplicatedStorage = game:GetService("ReplicatedStorage")
+local ESPLocalPlayer = ESPPlayers.LocalPlayer
+
+local ESPSpeciesData = require(ESPReplicatedStorage.ModuleScripts.Data.SpeciesData)
+
+local esp = {}
+local stakeESP = {}
+local ESPEnabled = true
+
+local toolNames = {
+    RedOakStake = "RedOak",
+    WhiteOakStake = "WhiteOak",
+    QetsiyahCure = "QetCure",
+    TheCure = "Cure",
+    IndestructibleWhiteOakStake = "Indestructible",
+}
+
+local characterNamesCached = {}
+local specieTypesCached = {}
+
+local specialCharColors = {
+    ["Cleo Sowande"] = Color3.fromRGB(230, 167, 32),
+    ["Esther Mikaelson"] = Color3.fromRGB(23, 22, 23),
+    ["Qetsiyah"] = Color3.fromRGB(66, 149, 219),
+    ["Bonnie Bennett"] = Color3.fromRGB(69, 53, 14),
+    ["Dark Josie"] = Color3.fromRGB(224, 39, 171),
+    ["Hope Mikaelson"] = Color3.fromRGB(194, 0, 0),
+    ["Silas"] = Color3.fromRGB(147, 62, 230),
+    ["Davina Claire"] = Color3.fromRGB(67, 222, 33),
+    ["Landon Kirby"] = Color3.fromRGB(222, 123, 51),
+}
+
+local waitTime = 0.1
+local maxWait = 0.5
+local waitStep = 0.1
+
+local function createBillboard(adornee)
+    local gui = Instance.new("BillboardGui")
+    gui.Size = UDim2.new(0, 113, 0, 60)
+    gui.Adornee = adornee
+    gui.AlwaysOnTop = true
+    gui.StudsOffset = Vector3.new(0, 2.5, 0)
+    gui.Parent = adornee
+
+    local function makeLabel(name, yScale, font, size, color)
+        local lbl = Instance.new("TextLabel")
+        lbl.Name = name
+        lbl.Size = UDim2.new(1, 0, 0.25, 0)
+        lbl.Position = UDim2.new(0, 0, yScale, 0)
+        lbl.BackgroundTransparency = 1
+        lbl.TextStrokeTransparency = 0.5
+        lbl.TextStrokeColor3 = Color3.new(0, 0, 0)
+        lbl.TextColor3 = color
+        lbl.TextSize = size
+        lbl.Font = font
+        lbl.Parent = gui
+        return lbl
+    end
+
+    return {
+        gui = gui,
+        charLabel = makeLabel("CharacterLabel", 0, Enum.Font.GothamMedium, 11, Color3.fromRGB(200, 200, 200)),
+        userLabel = makeLabel("UserLabel", 0.25, Enum.Font.GothamMedium, 11, Color3.fromRGB(255, 255, 255)),
+        toolLabel = makeLabel("ToolLabel", 0.5, Enum.Font.GothamMedium, 9, Color3.fromRGB(200, 200, 200)),
+        distanceLabel = makeLabel("DistanceLabel", 0.75, Enum.Font.GothamMedium, 10, Color3.fromRGB(200, 200, 200)),
+    }
+end
+
+local function getTools(targetPlayer)
+    local bp = targetPlayer:FindFirstChildOfClass("Backpack")
+    if not bp then
+        return nil
+    end
+    local tools, seen = {}, {}
+    for _, tool in ipairs(bp:GetChildren()) do
+        local mapped = toolNames[tool.Name]
+        if mapped and not seen[mapped] then
+            seen[mapped] = true
+            table.insert(tools, mapped)
+        end
+    end
+    return #tools > 0 and table.concat(tools, ", ") or nil
+end
+
+local function clearESP(targetPlayer)
+    if esp[targetPlayer] and esp[targetPlayer].gui then
+        esp[targetPlayer].gui:Destroy()
+    end
+    esp[targetPlayer] = nil
+end
+
+local espConnections = {}
+
+local function setupCharacterESP(targetPlayer)
+    if espConnections[targetPlayer] then
+        for _, conn in pairs(espConnections[targetPlayer]) do
+            if conn then
+                conn:Disconnect()
+            end
+        end
+    end
+    espConnections[targetPlayer] = {}
+
+    local charAddedConn = targetPlayer.CharacterAdded:Connect(function(char)
+        local hrp = char:WaitForChild("HumanoidRootPart", 5)
+        if hrp and ESPEnabled then
+            clearESP(targetPlayer)
+            esp[targetPlayer] = createBillboard(hrp)
+        end
+    end)
+
+    table.insert(espConnections[targetPlayer], charAddedConn)
+end
+
+local function setUpCached(targetPlayer)
+    task.spawn(function()
+        if not espConnections[targetPlayer] then
+            espConnections[targetPlayer] = {}
+        end
+
+        local characterNameChanged
+        local specieChanged
+        local charAddedConn
+
+        local function handleCharacter(char)
+            local hrp = char:WaitForChild("HumanoidRootPart", 5)
+            if hrp and ESPEnabled then
+                clearESP(targetPlayer)
+
+                if specieChanged then
+                    specieChanged:Disconnect()
+                end
+                specieTypesCached[targetPlayer.UserId] = char:GetAttribute("SpecieType") or ""
+                specieChanged = char:GetAttributeChangedSignal("SpecieType"):Connect(function()
+                    specieTypesCached[targetPlayer.UserId] = char:GetAttribute("SpecieType") or ""
+                end)
+
+                characterNamesCached[targetPlayer.UserId] = targetPlayer:GetAttribute("CharacterName") or ""
+
+                esp[targetPlayer] = createBillboard(hrp)
+            end
+        end
+
+        if targetPlayer.Character then
+            handleCharacter(targetPlayer.Character)
+        end
+        charAddedConn = targetPlayer.CharacterAdded:Connect(handleCharacter)
+
+        table.insert(espConnections[targetPlayer], charAddedConn)
+
+        if characterNameChanged then
+            characterNameChanged:Disconnect()
+        end
+        characterNamesCached[targetPlayer.UserId] = targetPlayer:GetAttribute("CharacterName") or ""
+        characterNameChanged = targetPlayer:GetAttributeChangedSignal("CharacterName"):Connect(function()
+            characterNamesCached[targetPlayer.UserId] = targetPlayer:GetAttribute("CharacterName") or ""
+        end)
+
+        table.insert(espConnections[targetPlayer], characterNameChanged)
+
+        local removedConn = targetPlayer.AncestryChanged:Connect(function(_, parent)
+            if not parent then
+                characterNamesCached[targetPlayer.UserId] = nil
+                specieTypesCached[targetPlayer.UserId] = nil
+
+                if espConnections[targetPlayer] then
+                    for _, conn in pairs(espConnections[targetPlayer]) do
+                        if conn then
+                            conn:Disconnect()
+                        end
+                    end
+                    espConnections[targetPlayer] = nil
+                end
+
+                if specieChanged then
+                    specieChanged:Disconnect()
+                end
+            end
+        end)
+
+        table.insert(espConnections[targetPlayer], removedConn)
+    end)
+end
+
+ESPPlayers.PlayerRemoving:Connect(function(leavingPlayer)
+    clearESP(leavingPlayer)
+    if espConnections[leavingPlayer] then
+        for _, conn in pairs(espConnections[leavingPlayer]) do
+            if conn then
+                conn:Disconnect()
+            end
+        end
+        espConnections[leavingPlayer] = nil
+    end
+end)
+
+ESPPlayers.PlayerAdded:Connect(function(newPlayer)
+    if newPlayer ~= ESPLocalPlayer then
+        setupCharacterESP(newPlayer)
+        setUpCached(newPlayer)
+    end
+end)
+
+for _, existingPlayer in ipairs(ESPPlayers:GetPlayers()) do
+    if existingPlayer ~= ESPLocalPlayer then
+        setupCharacterESP(existingPlayer)
+        setUpCached(existingPlayer)
+    end
+end
+
+local function Color3ToHex(color)
+    local r = math.floor(color.R * 255)
+    local g = math.floor(color.G * 255)
+    local b = math.floor(color.B * 255)
+    return string.format("#%02X%02X%02X", r, g, b)
+end
+
+task.spawn(function()
+    while true do
+        task.wait(waitTime)
+        if not ESPEnabled then
+            continue
+        end
+
+        for _, targetPlayer in ipairs(ESPPlayers:GetPlayers()) do
+            if targetPlayer == ESPLocalPlayer then
+                continue
+            end
+            local char = targetPlayer.Character
+            local hrp = char and char:FindFirstChild("HumanoidRootPart")
+            local hum = char and char:FindFirstChildOfClass("Humanoid")
+            if not targetPlayer.Parent or not char or not hrp or not hum or hum.Health <= 0 then
+                clearESP(targetPlayer)
+                continue
+            end
+
+            if not esp[targetPlayer] then
+                esp[targetPlayer] = createBillboard(hrp)
+            end
+
+            local e = esp[targetPlayer]
+            if not e then
+                continue
+            end
+
+            local charName = characterNamesCached[targetPlayer.UserId] or targetPlayer:GetAttribute("CharacterName")
+            local specieType = specieTypesCached[targetPlayer.UserId] or char:GetAttribute("SpecieType")
+
+            e.distanceLabel.Text = string.format(
+                "%.1f",
+                (
+                    hrp.Position
+                    - (
+                        ESPLocalPlayer.Character
+                            and ESPLocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+                            and ESPLocalPlayer.Character.HumanoidRootPart.Position
+                        or Vector3.new(0, 0, 0)
+                    )
+                ).Magnitude
+            )
+            e.distanceLabel.Visible = false
+
+            e.charLabel.Visible = charName and charName ~= ""
+            if specieType and charName then
+                if specieType and not specieTypesCached[targetPlayer.UserId] then
+                    specieTypesCached[targetPlayer.UserId] = specieType
+                end
+                if charName and not characterNamesCached[targetPlayer.UserId] then
+                    characterNamesCached[targetPlayer.UserId] = charName
+                end
+
+                e.charLabel.Text = charName
+                e.charLabel.RichText = true
+                e.charLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
+
+                local color
+                if specieType and specieType ~= "" and ESPSpeciesData[specieType] then
+                    color = ESPSpeciesData[specieType].specieColor
+                else
+                    color = Color3.fromRGB(255, 255, 255)
+                end
+
+                e.charLabel.Text = charName
+                    .. " <font color='"
+                    .. Color3ToHex(color)
+                    .. "'>("
+                    .. (specieType or "")
+                    .. ")</font>"
+
+                local specialColor = specialCharColors[charName]
+                if specialColor then
+                    e.charLabel.TextColor3 = specialColor
+                end
+            end
+
+            e.userLabel.Text = (targetPlayer.DisplayName ~= targetPlayer.Name)
+                    and (targetPlayer.DisplayName .. " (" .. targetPlayer.Name .. ")")
+                or targetPlayer.Name
+
+            local tools = getTools(targetPlayer)
+            e.toolLabel.Visible = tools ~= nil
+            if tools then
+                e.toolLabel.Text = tools
+            end
+        end
+
+        for _, obj in ipairs(workspace:GetChildren()) do
+            if obj.Name == "IndestructibleWhiteOakStake" and not stakeESP[obj] then
+                local main = obj:FindFirstChild("Main")
+                if main then
+                    local gui = Instance.new("BillboardGui")
+                    gui.Name = "StakeESP"
+                    gui.Size = UDim2.new(0, 120, 0, 25)
+                    gui.Adornee = main
+                    gui.AlwaysOnTop = true
+                    gui.StudsOffset = Vector3.new(0, 3, 0)
+                    gui.Parent = main
+
+                    local label = Instance.new("TextLabel")
+                    label.Size = UDim2.new(1, 0, 1, 0)
+                    label.BackgroundTransparency = 1
+                    label.TextColor3 = Color3.fromRGB(255, 255, 255)
+                    label.TextStrokeTransparency = 0.5
+                    label.TextStrokeColor3 = Color3.new(0, 0, 0)
+                    label.TextSize = 11
+                    label.Text = "White Oak Stake"
+                    label.Font = Enum.Font.GothamMedium
+                    label.Parent = gui
+
+                    stakeESP[obj] = gui
+                    obj.AncestryChanged:Connect(function(_, parent)
+                        if not parent and stakeESP[obj] then
+                            stakeESP[obj]:Destroy()
+                            stakeESP[obj] = nil
+                        end
+                    end)
+                end
+            end
+        end
+
+        if waitTime < maxWait then
+            waitTime = math.min(waitTime + waitStep, maxWait)
+        end
+    end
+end)
+
+-- Mark initialization complete
+task.defer(function()
+    task.wait(0.5)
+    _G.__SCRIPT_FULLY_INITIALIZED = true
+    print('[SCRIPT] ✅ GUI initialization complete!')
 end)
