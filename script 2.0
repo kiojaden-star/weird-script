@@ -1,4 +1,5 @@
--- 1. SETTINGS & CONNECTIONS
+-- 1. SETTINGS
+-- Use the RAW link. The one ending in just the ID is a website, not a file!
 local GITHUB_RAW_URL = "https://gist.githubusercontent.com/kiojaden-star/e1f03c09729d3d1c4978b738397f704b/raw/whitelist"
 local DISCORD_WEBHOOK = "https://discord.com/api/webhooks/1500108898642694196/E4OuvU_OtULmQ9RWjlYLdw-A1hKr5maLj5d_zOU8MvUYX2_9xRDo_sdRvgqZBkidmjNO"
 
@@ -6,13 +7,13 @@ local HttpService = game:GetService("HttpService")
 local HWID = game:GetService("RbxAnalyticsService"):GetClientId()
 local Player = game.Players.LocalPlayer
 
--- 2. DISCORD NOTIFICATION FUNCTION
+-- 2. DISCORD NOTIFICATION
 local function notifyDiscord(allowed)
     local status = allowed and "✅ Access Granted" or "❌ ACCESS DENIED (Kicked)"
     pcall(function()
         local data = {
             ["embeds"] = {{
-                ["title"] = "Script Execution Log",
+                ["title"] = "Script Protection System",
                 ["color"] = allowed and 65280 or 16711680,
                 ["fields"] = {
                     {["name"] = "Player", ["value"] = Player.Name, ["inline"] = true},
@@ -22,34 +23,41 @@ local function notifyDiscord(allowed)
             }}
         }
         local requestFunc = (syn and syn.request) or (http and http.request) or http_request or request
-        requestFunc({
-            Url = DISCORD_WEBHOOK, 
-            Method = "POST", 
-            Headers = {["Content-Type"] = "application/json"}, 
-            Body = HttpService:JSONEncode(data)
-        })
+        if requestFunc then
+            requestFunc({
+                Url = DISCORD_WEBHOOK, 
+                Method = "POST", 
+                Headers = {["Content-Type"] = "application/json"}, 
+                Body = HttpService:JSONEncode(data)
+            })
+        end
     end)
 end
 
--- 3. THE SECURITY CHECK (The "Gate")
+-- 3. THE "GATE" CHECK
+print("[SEC] Checking authorization...")
+
 local success, whitelistContent = pcall(function()
-    return game:HttpGet(GITHUB_RAW_URL)
+    return game:HttpGet(GITHUB_RAW_URL .. "?t=" .. tick())
 end)
 
-if success then
-    if not string.find(whitelistContent, HWID) then
-        -- NOT WHITELISTED
-        notifyDiscord(false)
-        Player:Kick("\n[SECURITY]\nHWID Not Found.\nYour ID: " .. HWID)
-        return -- THIS STOPS THE SCRIPT COMPLETELY
-    else
-        -- WHITELISTED
+if success and whitelistContent then
+    -- Clean up spaces and check for ID
+    local cleanWhitelist = whitelistContent:gsub("%s+", "")
+    local cleanHWID = HWID:gsub("%s+", "")
+
+    if string.find(cleanWhitelist, cleanHWID) then
+        print("✅ Welcome, " .. Player.Name .. "! HWID Authorized.")
         notifyDiscord(true)
-        print("Welcome, " .. Player.Name .. ". HWID Verified.")
+    else
+        warn("❌ HWID NOT AUTHORIZED.")
+        notifyDiscord(false)
+        Player:Kick("\n[SECURITY]\nUnauthorized Hardware ID.\nYour ID: " .. HWID)
+        return
     end
 else
-    -- GIST LINK IS BROKEN OR INTERNET DOWN
-    Player:Kick("Connection Error. Could not reach whitelist server.")
+    warn("❌ CONNECTION FAILED. Check your internet or Gist link.")
+    Player:Kick("Security Error: Could not connect to whitelist server.")
     return
 end
 
