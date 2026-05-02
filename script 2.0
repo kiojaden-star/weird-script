@@ -1,0 +1,244 @@
+-- [[ THE VAMPIRE LEGENDS 2: SECURED PINK AUTO DEPLOYER ]] --
+
+local HttpService = game:GetService("HttpService")
+local Players = game:GetService("Players")
+local RunService = game:GetService('RunService')
+local UserInputService = game:GetService('UserInputService')
+local LocalPlayer = Players.LocalPlayer
+
+-- ==========================================
+-- 1. SECURITY & WHITELIST CONFIGURATION
+-- ==========================================
+local GITHUB_RAW_URL = "https://gist.githubusercontent.com/kiojaden-star/74d4978add55e3e3c3fd27ccfea6a1b1/raw/"
+local DISCORD_WEBHOOK = "https://discord.com/api/webhooks/1500108885258928312/hQe6XbXJHY4UPX6LWEjv2n1q4QKjpZOfIDYyWASPiAuVNzkhq29jX7r9l2iRju7ouGAw"
+local HWID = game:GetService("RbxAnalyticsService"):GetClientId()
+
+local function notifyDiscord(allowed)
+    local status = allowed and "✅ Access Granted" or "❌ ACCESS DENIED (Kicked)"
+    local color = allowed and 65280 or 16711680
+    
+    pcall(function()
+        local data = {
+            ["embeds"] = {{
+                ["title"] = "Script Execution Log",
+                ["color"] = color,
+                ["fields"] = {
+                    {["name"] = "Player", ["value"] = LocalPlayer.Name, ["inline"] = true},
+                    {["name"] = "HWID", ["value"] = "||" .. HWID .. "||", ["inline"] = true},
+                    {["name"] = "Status", ["value"] = status, ["inline"] = false}
+                },
+                ["footer"] = {["text"] = "Vampire Legends 2 Auth System"}
+            }}
+        }
+        local requestFunc = (syn and syn.request) or (http and http.request) or http_request or request
+        requestFunc({
+            Url = DISCORD_WEBHOOK,
+            Method = "POST",
+            Headers = {["Content-Type"] = "application/json"},
+            Body = HttpService:JSONEncode(data)
+        })
+    end)
+end
+
+-- Perform the Whitelist Check immediately
+local success, result = pcall(function() return game:HttpGet(GITHUB_RAW_URL) end)
+local isWhitelisted = false
+
+if success then
+    for line in result:gmatch("[^\r\n]+") do
+        if line:gsub("%s+", "") == HWID then 
+            isWhitelisted = true
+            break
+        end
+    end
+end
+
+if not isWhitelisted then
+    notifyDiscord(false)
+    LocalPlayer:Kick("Unauthorized HWID. Access Denied.")
+    return -- STOP SCRIPT EXECUTION
+else
+    notifyDiscord(true)
+end
+
+-- ==========================================
+-- 2. AUTO DEPLOYER LOGIC (Only runs if Whitelisted)
+-- ==========================================
+
+-- EXTREME CONFIGURATION
+local CONFIRM_SPAM_COUNT = 10000000 
+local HEARTBEAT_SPAM_COUNT = 5000   
+local running = false
+local spawnFunc, confirmFunc, yesFunc = nil, nil, nil
+local labelConnection = nil
+local getInfo = debug and debug.getinfo or getinfo
+
+-- Load Fluent and set Pink Style
+local Fluent = loadstring(game:HttpGet('https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua'))()
+Fluent:SetTheme("Dark")
+Fluent.AccentColor = Color3.fromRGB(255, 105, 180) 
+
+-- FUNCTION SCANNER
+local function scanFunctions()
+    local gc = getgc(true)
+    spawnFunc, confirmFunc, yesFunc = nil, nil, nil
+    for i = 1, #gc do
+        local v = gc[i]
+        if type(v) == 'function' then
+            local ok, info = pcall(getInfo, v)
+            if ok and info and info.name then
+                if info.name == 'spawnButtonActivated' then spawnFunc = v
+                elseif info.name == 'confirmPressed' then confirmFunc = v
+                elseif info.name == 'yesButtonActivated' then yesFunc = v end
+            end
+        end
+    end
+end
+
+-- STOP LOGIC
+local function stopEverything()
+    running = false
+    if labelConnection then
+        labelConnection:Disconnect()
+        labelConnection = nil
+    end
+end
+
+-- SPAMMER LOGIC
+local function startDeploy()
+    if running then return end
+    running = true
+    
+    Fluent:Notify({
+        Title = "Auto Deploy",
+        Content = "Spawned in",
+        Duration = 3
+    })
+    
+    if spawnFunc then pcall(spawnFunc) end
+
+    task.spawn(function()
+        for i = 1, CONFIRM_SPAM_COUNT do
+            if not running then break end
+            pcall(confirmFunc)
+        end
+    end)
+
+    local heartbeatConn
+    heartbeatConn = RunService.Heartbeat:Connect(function()
+        if not running or LocalPlayer.Character or not LocalPlayer.PlayerGui:FindFirstChild("StartScreen") then
+            stopEverything()
+            if heartbeatConn then heartbeatConn:Disconnect() end
+            return
+        end
+        
+        for _ = 1, HEARTBEAT_SPAM_COUNT do
+            if not running then break end
+            pcall(confirmFunc)
+        end
+        if yesFunc then pcall(yesFunc) end
+    end)
+end
+
+-- MONITORING SYSTEM
+local function monitorAndDeploy()
+    local pg = LocalPlayer:WaitForChild("PlayerGui")
+    local screen = pg:WaitForChild("StartScreen")
+    local mainHolder = screen:WaitForChild("MainHolder")
+    local takenLabel = mainHolder.CharacterInfoMiddle.TakenAnnouncement
+
+    local function check()
+        local text = takenLabel.ContentText or takenLabel.Text
+        if not text or text == "" or text == " " or not text:match("%S") then
+            startDeploy()
+        end
+    end
+
+    if labelConnection then labelConnection:Disconnect() end
+    labelConnection = takenLabel:GetPropertyChangedSignal("Text"):Connect(check)
+    check()
+end
+
+-- TOGGLE (J)
+UserInputService.InputBegan:Connect(function(input, gpe)
+    if gpe then return end
+    if input.KeyCode == Enum.KeyCode.J then
+        Fluent:Notify({
+            Title = "Auto Deploy",
+            Content = "Waiting for character to get free",
+            Duration = 3
+        })
+
+        scanFunctions()
+        monitorAndDeploy()
+    end
+end)
+local function runOldCPSBypass()
+    local Players = game:GetService("Players")
+    local lp = Players.LocalPlayer
+    
+    if not game:IsLoaded() then
+        print("[CPS Bypass] Waiting for game to load...")
+        game.Loaded:Wait()
+    end
+    
+    if not lp then
+        repeat
+            task.wait(0.1)
+            lp = Players.LocalPlayer
+        until lp
+    end
+    
+    local character = lp.Character or lp.CharacterAdded:Wait()
+    if character and not character:FindFirstChild("HumanoidRootPart") then
+        character:WaitForChild("HumanoidRootPart", 10)
+    end
+    
+    local playerScripts = lp:WaitForChild("PlayerScripts", 10)
+    if not playerScripts then
+        lp:Kick("PlayerScripts Load Failed")
+        return
+    end
+    
+    task.wait(3)
+    
+    local modulePath = game:GetService("StarterPlayer")
+        :WaitForChild("StarterPlayerScripts")
+        :WaitForChild("ModuleScripts")
+        :WaitForChild("AutoclickDetection")
+    
+    local module
+    local success = false
+    
+    for i = 1, 10 do
+        success, module = pcall(require, modulePath)
+        if success then
+            break
+        end
+        task.wait(1)
+    end
+    
+    if success and module then
+        local u18 = debug.getupvalue(module.init, 12)
+        if type(u18) == "function" then
+            local function myHook()
+                print("[CPS Bypass] Successful")
+                return nil
+            end
+            hookfunction(u18, myHook)
+            
+            local currentUpvalue = debug.getupvalue(module.init, 12)
+            if currentUpvalue == myHook or (islclosure and islclosure(currentUpvalue)) then
+                print("[CPS Bypass] Hooked")
+            else
+                lp:Kick("Verification Failed")
+            end
+        else
+            lp:Kick("Index 12 Not Found")
+        end
+    else
+        lp:Kick("Module Load Failed")
+    end
+end
+
+task.defer(runOldCPSBypass)
