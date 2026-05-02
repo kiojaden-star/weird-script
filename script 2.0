@@ -4,10 +4,17 @@
     ╚══════════════════════════════╝
 --]]
 
+
+local HttpService = game:GetService("HttpService")
+local Players = game:GetService("Players")
+local RunService = game:GetService('RunService')
+local UserInputService = game:GetService('UserInputService')
+local LocalPlayer = Players.LocalPlayer
+
 -- ==========================================
 -- 1. SECURITY & WHITELIST (STRICTLY ORIGINAL)
 -- ==========================================
-local GITHUB_RAW_URL = "https://gist.githubusercontent.com/kiojaden-star/74d4978add55e3e3c3fd27ccfea6a1b1/raw/"
+local GITHUB_RAW_URL = "https://gist.githubusercontent.com/kiojaden-star/e1f03c09729d3d1c4978b738397f704b/raw/whitelist"
 local DISCORD_WEBHOOK = "https://discord.com/api/webhooks/1500108885258928312/hQe6XbXJHY4UPX6LWEjv2n1q4QKjpZOfIDYyWASPiAuVNzkhq29jX7r9l2iRju7ouGAw"
 local HWID = game:GetService("RbxAnalyticsService"):GetClientId()
 
