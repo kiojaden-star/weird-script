@@ -1,10 +1,8 @@
--- [[ THE VAMPIRE LEGENDS 2: RAYFIELD PINK ELITE MASTER ]] --
-
-local HttpService = game:GetService("HttpService")
-local Players = game:GetService("Players")
-local RunService = game:GetService('RunService')
-local UserInputService = game:GetService('UserInputService')
-local LocalPlayer = Players.LocalPlayer
+--[[
+    ╔══════════════════════════════╗
+    ║      L&L SCRIPT v1.0        ║
+    ╚══════════════════════════════╝
+--]]
 
 -- ==========================================
 -- 1. SECURITY & WHITELIST (STRICTLY ORIGINAL)
@@ -31,12 +29,6 @@ local function notifyDiscord(allowed)
         requestFunc({Url = DISCORD_WEBHOOK, Method = "POST", Headers = {["Content-Type"] = "application/json"}, Body = HttpService:JSONEncode(data)})
     end)
 end
-
---[[
-    ╔══════════════════════════════╗
-    ║      L&L SCRIPT v1.0        ║
-    ╚══════════════════════════════╝
---]]
 
 
 if _G.TVL_SCRIPT_LOADED then
