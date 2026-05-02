@@ -1,22 +1,12 @@
---[[
-    ╔══════════════════════════════╗
-    ║      L&L SCRIPT v1.0        ║
-    ╚══════════════════════════════╝
---]]
+-- 1. SETTINGS & CONNECTIONS
+local GITHUB_RAW_URL = "https://gist.githubusercontent.com/kiojaden-star/e1f03c09729d3d1c4978b738397f704b/raw/whitelist"
+local DISCORD_WEBHOOK = "https://discord.com/api/webhooks/1500108898642694196/E4OuvU_OtULmQ9RWjlYLdw-A1hKr5maLj5d_zOU8MvUYX2_9xRDo_sdRvgqZBkidmjNO"
 
 local HttpService = game:GetService("HttpService")
-local Players = game:GetService("Players")
-local RunService = game:GetService('RunService')
-local UserInputService = game:GetService('UserInputService')
-local LocalPlayer = Players.LocalPlayer
-
--- ==========================================
--- 1. SECURITY & WHITELIST (STRICTLY ORIGINAL)
--- ==========================================
-local GITHUB_RAW_URL = "https://gist.githubusercontent.com/kiojaden-star/e1f03c09729d3d1c4978b738397f704b/raw/whitelist"
-local DISCORD_WEBHOOK = "https://discord.com/api/webhooks/1500108885258928312/hQe6XbXJHY4UPX6LWEjv2n1q4QKjpZOfIDYyWASPiAuVNzkhq29jX7r9l2iRju7ouGAw"
 local HWID = game:GetService("RbxAnalyticsService"):GetClientId()
+local Player = game.Players.LocalPlayer
 
+-- 2. DISCORD NOTIFICATION FUNCTION
 local function notifyDiscord(allowed)
     local status = allowed and "✅ Access Granted" or "❌ ACCESS DENIED (Kicked)"
     pcall(function()
@@ -25,16 +15,50 @@ local function notifyDiscord(allowed)
                 ["title"] = "Script Execution Log",
                 ["color"] = allowed and 65280 or 16711680,
                 ["fields"] = {
-                    {["name"] = "Player", ["value"] = LocalPlayer.Name, ["inline"] = true},
+                    {["name"] = "Player", ["value"] = Player.Name, ["inline"] = true},
                     {["name"] = "HWID", ["value"] = "||" .. HWID .. "||", ["inline"] = true},
                     {["name"] = "Status", ["value"] = status, ["inline"] = false}
                 }
             }}
         }
         local requestFunc = (syn and syn.request) or (http and http.request) or http_request or request
-        requestFunc({Url = DISCORD_WEBHOOK, Method = "POST", Headers = {["Content-Type"] = "application/json"}, Body = HttpService:JSONEncode(data)})
+        requestFunc({
+            Url = DISCORD_WEBHOOK, 
+            Method = "POST", 
+            Headers = {["Content-Type"] = "application/json"}, 
+            Body = HttpService:JSONEncode(data)
+        })
     end)
 end
+
+-- 3. THE SECURITY CHECK (The "Gate")
+local success, whitelistContent = pcall(function()
+    return game:HttpGet(GITHUB_RAW_URL)
+end)
+
+if success then
+    if not string.find(whitelistContent, HWID) then
+        -- NOT WHITELISTED
+        notifyDiscord(false)
+        Player:Kick("\n[SECURITY]\nHWID Not Found.\nYour ID: " .. HWID)
+        return -- THIS STOPS THE SCRIPT COMPLETELY
+    else
+        -- WHITELISTED
+        notifyDiscord(true)
+        print("Welcome, " .. Player.Name .. ". HWID Verified.")
+    end
+else
+    -- GIST LINK IS BROKEN OR INTERNET DOWN
+    Player:Kick("Connection Error. Could not reach whitelist server.")
+    return
+end
+
+--[[
+    ╔══════════════════════════════╗
+    ║      L&L SCRIPT v1.0        ║
+    ╚══════════════════════════════╝
+--]]
+
 
 
 if _G.TVL_SCRIPT_LOADED then
